@@ -13,8 +13,6 @@ class NxtcpService(BaseService):
         self.tracer = tracer
         self.address = address
 
-        self.controller.register_service(self)
-
         self.__start()
 
     def __start(self):
@@ -33,6 +31,8 @@ class NxtcpService(BaseService):
         self.proxy.set_read_handler(self.__on_connect)
         self.proxy.set_interest(read=True)
 
+        self.controller.register_service(self)
+
     def __on_connect(self):
         """
         Called from the mainloop when a new connection is ready to be
@@ -41,9 +41,7 @@ class NxtcpService(BaseService):
 
         client_sock, address = self.socket.accept()
 
-        client = NxtcpConnection(self.controller, self.mainloop, self.reactor, self.tracer, client_sock)
-
-        self.controller.register_client(client)
+        NxtcpConnection(self.controller, self.mainloop, self.reactor, self.tracer, client_sock)
 
     def get_actual_address(self):
         """

@@ -70,6 +70,9 @@ class NxtcpConnection:
         self.channel.set_description(description)
         self.channel.set_downstream_handler(self.__on_downstream)
 
+        # register on controller
+        self.controller.register_client(self)
+
         # send welcome
         self.encoder.encode(WelcomePacket(1, 1))
         self.proxy.start_writing()

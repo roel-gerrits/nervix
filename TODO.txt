@@ -1,20 +1,21 @@
 
 # TODO
 
-V 1.0
-
-- implement nxtcp service
-    - keepalive
-
-- build service manager
+v1.0
+- implement service controller
+    - have services register with controller
+    - have clients register with controller
+    - have controller print something to stdout
 
 - catch and handle SIGINT
 
 - fix encoding of payload/topic in telnet service
 
+- complete nxtcp service tests
 
 
-V 1.1
+
+v1.1
 
 - configurable request timeout
 
