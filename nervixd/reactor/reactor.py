@@ -484,7 +484,6 @@ class Reactor:
         except ValueError as e:
             self.tracer.invalid_downstream_verb(channel, verb, str(e))
             raise
-            return
 
         self.tracer.downstream_verb(channel, verb)
 

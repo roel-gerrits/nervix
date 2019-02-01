@@ -194,13 +194,3 @@ class InvalidRequestPacket(BasePacket):
 
         if reason:
             self.add_string(reason)
-
-
-class AlignPacket(BasePacket):
-
-    def __init__(self, timestamp):
-        BasePacket.__init__(self)
-
-        self.set_type(b'ALIGN')
-
-        self.add_integer(timestamp)

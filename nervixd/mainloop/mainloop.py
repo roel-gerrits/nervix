@@ -41,14 +41,7 @@ class Mainloop:
 
     SIG_SHUTDOWN = 1
 
-    # SIG_START_TIME_TRAVEL = 2
-
-    def __init__(self, allow_time_travel=False):
-
-        # self.allow_time_travel = allow_time_travel
-        # self.time_travel_target = 0.0
-        #
-        # self.skipped_time = 0.0
+    def __init__(self):
 
         self.selector = selectors.DefaultSelector()
 
@@ -71,16 +64,6 @@ class Mainloop:
 
     def shutdown(self):
         self.control.signal(Mainloop.SIG_SHUTDOWN)
-
-    # def time_travel(self, offset):
-    #     """ Travel a given amount of time. This will skip all timers until the given offset of time is
-    #     reached.
-    #     """
-    #
-    #     now = self.now()
-    #     self.time_travel_target = now + offset
-    #
-    #     self.control.signal(Mainloop.SIG_START_TIME_TRAVEL)
 
     def run_forever(self):
 
@@ -112,23 +95,6 @@ class Mainloop:
 
         elif timer_timeout:
             timeout = timer_timeout
-
-        # # check if the skip_timers flag is set, if so skip the timeout
-        # # in case there are no pending writes.
-        # if self.allow_time_travel:
-        #
-        #     if timeout is not None:
-        #         for events in self.fd_events.values():
-        #             if events & selectors.EVENT_WRITE:
-        #                 break
-        #
-        #         else:
-        #             # there are no pending writes
-        #
-        #             now = self.now()
-        #             if now < self.time_travel_target:
-        #                 self.skipped_time += timeout
-        #                 timeout = 0.0
 
         # wait for events
         events = self.selector.select(timeout)
@@ -178,12 +144,6 @@ class Mainloop:
                 # no need to do anything, the time-traveling will happen on the next call to this
                 # function
                 pass
-
-        # print("{} timers, {} writes, {} reads".format(nr_timers, nr_writes, nr_reads))
-
-        # if nr_reads > 0 or nr_timers > 0:
-        #     if self.test_output_interface:
-        #         self.test_output_interface.send_server_time()
 
         return nr_timers + nr_writes + nr_reads + nr_signals
 

@@ -181,20 +181,3 @@ class ByeByePacket(BasePacket):
 
         self.set_type(PACKET_BYEBYE)
 
-
-class SyncAckPacket(BasePacket):
-
-    def __init__(self):
-        BasePacket.__init__(self)
-
-        self.set_type(PACKET_SYNC_ACK)
-
-
-class AlignPacket(BasePacket):
-
-    def __init__(self, timestamp):
-        BasePacket.__init__(self)
-
-        self.set_type(PACKET_ALIGN)
-
-        self.add_uint64_field(int(timestamp * 1000))

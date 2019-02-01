@@ -19,7 +19,6 @@ class Decoder(BaseDecoder):
             PACKET_UNSUBSCRIBE: UnsubscribePacket,
             PACKET_PONG: PongPacket,
             PACKET_QUIT: QuitPacket,
-            PACKET_SYNC_REQ: SyncReqPacket,
         }
 
     def decode(self):
@@ -226,14 +225,3 @@ class QuitPacket(BasePacket):
 
     def __init__(self, frame):
         BasePacket.__init__(self, frame)
-        
-
-class SyncReqPacket(BasePacket):
-    """
-    -
-    """
-
-    def __init__(self, frame):
-        BasePacket.__init__(self, frame)
-
-

@@ -83,29 +83,6 @@ def main(arg_list):
         type=argparse_validate_address,
         default=[],
     )
-    #
-    # parser.add_argument(
-    #     '--enable-test-interface',
-    #     dest='enable_test_interface',
-    #     action='store_true',
-    #     help='Enable a test interface on stdin/stdout. This is meant for usage in automated tests.'
-    # )
-    #
-    # parser.add_argument(
-    #     '--alignment-interval',
-    #     dest='alignment_interval',
-    #     action='store',
-    #     type=argparse_validate_timespan,
-    #     default=None,
-    #     help='Set the interval (in seconds) at which alignment packets will be send. This is meant for usage in automated tests.'
-    # )
-    #
-    # parser.add_argument(
-    #     '--allow-time-travel',
-    #     dest='allow_time_travel',
-    #     action='store_true',
-    #     help='Allow for timers to be skipped. This is meant te be used to speedup automatic tests'
-    # )
 
     args = parser.parse_args(arg_list)
 
@@ -117,24 +94,13 @@ def main(arg_list):
 
     controller = ServiceController(args)
 
-    # # initialze the testing interface if required
-    # test_interface = None
-    # if args.enable_test_interface:
-    #     test_interface = TestInterface(mainloop, controller)
-
     # create NXTCP services
     for address in args.nxtcp_addresses:
         service = NxtcpService(controller, mainloop, reactor, tracer, address)
 
-        # if test_interface:
-        #     test_interface.announce_service(service)
-
     # create Telnet services
     for address in args.telnet_addresses:
         service = TelnetService(controller, mainloop, reactor, tracer, address)
-
-        # if test_interface:
-        #     test_interface.announce_service(service)
 
     logger.info("Starting mainloop")
 
