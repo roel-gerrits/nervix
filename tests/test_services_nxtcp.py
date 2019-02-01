@@ -6,6 +6,7 @@ from tests.helpers.sockmock import SockMock, Scenario
 
 import tests.nxtcp_packet_definition as packets
 
+# we use the following as hostnames and ports for
 LISTEN_ADDRESS = ('', 9999)
 PEER_ADDRESSES = [
     ('peer1_address', 9001),
@@ -19,6 +20,9 @@ PEER3_ADDRESS = PEER_ADDRESSES[2]
 
 
 def setup_clients(scenario, nr_clients):
+    """ Setup a scenario and n number of clients. 
+    """
+
     host = scenario.local_socket()
     host.listen(LISTEN_ADDRESS)
 
@@ -36,28 +40,15 @@ def setup_clients(scenario, nr_clients):
 
 
 def close_clients(*clients):
+    """ Clean up the given clients.
+    """
+
     for client in clients:
         client.send(packets.quit())
         client.remote_closed()
 
 
 class Test(unittest.TestCase):
-    #
-    # def test_1(self):
-    #     s = Scenario()
-    #
-    #     host = s.local_socket()
-    #     host.listen(LISTEN_ADDRESS)
-    #
-    #     c1 = s.remote_socket(PEER1_ADDRESS)
-    #     c1.connect(LISTEN_ADDRESS)
-    #
-    #     c1.recv(packets.welcome())
-    #
-    #     s.end()
-    #
-    #     with SockMock(s):
-    #         main(['--nxtcp', ':9999'])
 
     def test_keepalive_1(self):
         """ Test if a client will receive a ping client after 10 seconds, and will
@@ -326,6 +317,56 @@ class Test(unittest.TestCase):
 
         close_clients(c1, c2)
 
+        s.end()
+
+        with SockMock(s):
+            main(['--nxtcp', ':9999'])
+
+    def test_request_1(self):
+        """ Test if the first client receives a message when the second client replies
+        to the request.
+        """
+
+        s = Scenario()
+        host, c1, c2 = setup_clients(s, 2)
+
+        c1.send(packets.login(b'testname', False, False, False))
+        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+
+        c2.send(packets.request(b'testname', False, 1234, 1000, b'thepayload'))
+        c1.recv(packets.call(False, 1, b'testname', b'thepayload'))
+
+        c1.send(packets.post(1, b'thepayload'))
+        c2.recv(packets.message(1234, packets.MESSAGE_STATUS_OK, b'thepayload'))
+
+        close_clients(c1, c2)
+        s.end()
+
+        with SockMock(s):
+            main(['--nxtcp', ':9999'])
+
+    def test_dual_post_1(self):
+        """ Check if a second post to the same postref is ignored by the server, and will not
+        result in a second Message packet to client.
+        """
+
+        s = Scenario()
+        host, c1, c2 = setup_clients(s, 2)
+
+        c1.send(packets.login(b'testname', False, False, False))
+        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+
+        c2.send(packets.request(b'testname', False, 1234, 1000, b'thepayload'))
+        c1.recv(packets.call(False, 1, b'testname', b'thepayload'))
+
+        c1.send(packets.post(1, b'thepayload'))
+        c2.recv(packets.message(1234, packets.MESSAGE_STATUS_OK, b'thepayload'))
+
+        c1.send(packets.post(1, b'thesecondpayload'))
+
+        s.timelapse(2.0)
+
+        close_clients(c1, c2)
         s.end()
 
         with SockMock(s):
