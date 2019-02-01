@@ -65,10 +65,10 @@ def request(name, unidirectional, messageref, timeout_ms, payload):
         payload)
 
 
-def post(messageref, payload):
+def post(postref, payload):
     n = 8 + len(payload)
 
-    return uint32(n) + uint8(PACKET_POST) + uint32(messageref) + blob(payload)
+    return uint32(n) + uint8(PACKET_POST) + uint32(postref) + blob(payload)
 
 
 def subscribe(messageref, name, topic):
@@ -124,7 +124,7 @@ MESSAGE_STATUS_UNREACHABLE = 2
 def message(messageref, status, payload=None):
     n = 5
 
-    pkt = uint8(PACKET_MESSAGE) + uint8(status) + uint32(1234)
+    pkt = uint8(PACKET_MESSAGE) + uint8(status) + uint32(messageref)
 
     if status == MESSAGE_STATUS_OK:
         n += 4 + len(payload)

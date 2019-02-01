@@ -233,11 +233,6 @@ class System:
 
         self.scenario.verify(TimelapseEvent, seconds)
 
-        # print(f"---> time is now {self.monotonic_time}")
-
-        if self.monotonic_time > 30:
-            exit(1)
-
     """
     """
 
