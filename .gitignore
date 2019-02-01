@@ -1,0 +1,8 @@
+*.pyc
+__pycache__
+*.nfs*
+*.geanyprj
+*.geany
+.idea
+testclient
+

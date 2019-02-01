@@ -1,0 +1,29 @@
+
+# TODO
+
+V 1.0
+
+- implement nxtcp service
+    - keepalive
+
+- build service manager
+
+- catch and handle SIGINT
+
+- fix encoding of payload/topic in telnet service
+
+
+
+V 1.1
+
+- configurable request timeout
+
+- performance bechmarks
+
+- performance statistics
+
+- repeat last post for subscribers
+
+- test tracer calls from reactor
+
+- add tracing service
