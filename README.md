@@ -4,7 +4,7 @@
 Nervix is a message broker. It allows you to divide your system into smaller parts and have them communicate with each
 other in a reliable and predictable manner.
 
-## Concepts
+## Concept
 
 Nervix is a server, it accepts connections from clients. After successful connection clients can talk to each other via
 the server. So if you use nervix to devide your system in smaller subsystems and each subsystem will be a client in
@@ -55,35 +55,47 @@ two telnet based clients, and have them interchange some messages.
 
 To start the server:
 
-python -m nervix -t :9999
+```
+$ python -m nervix -t :9999
+```
 
 This will start the nervix server and enable a telnet service on port 9999
 
 Start two clients, in two seperate consoles run:
 
-telnet localhost 9999
+```
+$ telnet localhost 9999
+```
 
 From one of the clients type:
 
+```
 LOGIN testnamespace
+```
 
 and hit enter.
 
 You should get a response:
 
+```
 SESSION testnamespace ACTIVE
+```
 
 Now from the other client type:
 
+```
 REQUEST UNI testnamespace message
+```
 
 This will send an unidirectional (meaning it expects no response) to the server.
 
 On the other client we will now see an incoming 'call':
 
+```
 CALL UNI testnamespace message.
+```
 
-See the docs for how to go from here.
+See the docs (yet to be made) for how to go from here.
 
 
 ## Features
@@ -115,8 +127,8 @@ This is very beneficial in systems where a publisher can potentially publish on 
 generally only interest in a small subset of these topics. Lets imagine a client that is publishing information about
 file changes on a harddrive. If this client wouldn't be aware of the interest it would have to publish all possible
 changes on all files. This could potentially waste a lot of CPU and network resources. Now, with interest aware
-publishers, lets say we have a client that is interested in changes in *.JPG files in a certain subdirectory. This
-client can now subscribe on the topic "file-changes;suffix=*.JPG,subdir=/var/files". The publishing client will be
+publishers, lets say we have a client that is interested in changes in .JPG files in a certain subdirectory. This
+client can now subscribe on the topic "file-changes;suffix=.JPG,subdir=/var/files". The publishing client will be
 informed about the this interest and will start to publish changes matching the topic. As soon as the subscribed client
 unsubscribes from that topic, the publishing client will be informed that there is no longer interest in that topic and
 it will stop publishing.
