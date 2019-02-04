@@ -56,7 +56,7 @@ two telnet based clients, and have them interchange some messages.
 To start the server:
 
 ```
-$ python -m nervix -t :9999
+$ python -m nervixd -t :9999
 ```
 
 This will start the nervix server and enable a telnet service on port 9999
