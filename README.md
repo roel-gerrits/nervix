@@ -21,7 +21,7 @@ client in respect to the server.
 When connected, clients are able to 'claim' a 'namespace'. This will later allow other clients to send messages to that
 namespace. A namespace can only be 'owned' my one client at a time. However nervix allows other clients to run in
 standby mode, allowing new clients to take over a namespace when the original client releases the namespace (either on
-purpose, or as result of a misbehaving client), see 'Seamless namespace changeover' for more information.
+purpose, or as result of a misbehaving client), see [Seamless namespace changeover](#seamless-namespace-changeover) for more information.
 
 ### Request/response (1:1 messaging)
 
@@ -53,7 +53,7 @@ publisher does not know if there are any subscriptions, and the topics have to b
 implementation the publisher is informed about interest on topics, and the publisher can thus also be very dynamic with
 these topics. For example: a client may subscribe on the topic "tank-temperature,update-interval=5s". This would then
 be interpreted by the publisher and it will start publishing the tank temperature every 5 seconds.
-See also: 'Interest aware publishers'.
+See also: [Interest aware publishers](#interest-aware-publishers).
 
 
 ## Getting started
