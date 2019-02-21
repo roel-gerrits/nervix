@@ -1,5 +1,5 @@
 
-# TODO
+TODO
 
 v1.0
 
@@ -13,8 +13,14 @@ v1.0
 
 - fix encoding of payload/topic in telnet service
 
-- complete nxtcp service tests
-
+- write docs
+    - concept
+        - channels
+        - namespaces
+        - verbs
+            - *
+    - nxtcp protocol definition
+    - telnet protocol definition
 
 
 v1.1
