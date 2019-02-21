@@ -21,7 +21,8 @@ client in respect to the server.
 When connected, clients are able to 'claim' a 'namespace'. This will later allow other clients to send messages to that
 namespace. A namespace can only be 'owned' my one client at a time. However nervix allows other clients to run in
 standby mode, allowing new clients to take over a namespace when the original client releases the namespace (either on
-purpose, or as result of a misbehaving client), see [Seamless namespace changeover](#seamless-namespace-changeover) for more information.
+purpose, or as result of a misbehaving client), see [Seamless namespace changeover](#seamless-namespace-changeover) for
+more information.
 
 ### Request/response (1:1 messaging)
 
@@ -189,4 +190,4 @@ This protocol uses UDP as the transport layer with a lightweight binary protocol
 This protocol is most suitable for when the network path between client and server is very unreliable, and TCP
 connections would take a long time to set up. It would be suitable for clients that would send a lot of unidirectional
 requests as it wouldn't matter if those requests end up at the server anyway.
-s
+
