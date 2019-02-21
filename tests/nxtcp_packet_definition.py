@@ -82,9 +82,9 @@ def unsubscribe(name, topic):
     return uint32(n) + uint8(PACKET_UNSUBSCRIBE) + string(name) + blob(topic)
 
 
-def pong(payload):
-    n = 4 + len(payload)
-    return uint32(n) + uint8(PACKET_PONG) + blob(payload)
+def pong():
+    n = 0
+    return uint32(n) + uint8(PACKET_PONG)
 
 
 def quit():
@@ -143,9 +143,9 @@ def interest(postref, status, topic):
     return uint32(n) + uint8(PACKET_INTEREST) + uint8(status) + uint32(postref) + blob(topic)
 
 
-def ping(payload):
-    n = 4 + len(payload)
-    return uint32(n) + uint8(PACKET_PING) + blob(payload)
+def ping():
+    n = 0
+    return uint32(n) + uint8(PACKET_PING)
 
 
 def welcome():

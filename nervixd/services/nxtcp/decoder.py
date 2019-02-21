@@ -215,8 +215,6 @@ class PongPacket(BasePacket):
     def __init__(self, frame):
         BasePacket.__init__(self, frame)
 
-        self.payload = self.get_blob(0)
-
 
 class QuitPacket(BasePacket):
     """

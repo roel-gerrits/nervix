@@ -142,9 +142,8 @@ class TestState(unittest.TestCase):
 
     def test_pong(self):
         self.assertDecodePacket(
-            packets.pong(b'thepayload'),
+            packets.pong(),
             PongPacket,
-            payload=b'thepayload'
         )
 
     def test_quit(self):

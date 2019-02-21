@@ -81,8 +81,8 @@ class TestState(unittest.TestCase):
 
     def test_ping(self):
         self.assertEncodePacket(
-            PingPacket(b'thepayload'),
-            packets.ping(b'thepayload')
+            PingPacket(),
+            packets.ping()
         )
 
     def test_welcome(self):

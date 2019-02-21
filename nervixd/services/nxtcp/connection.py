@@ -129,9 +129,7 @@ class NxtcpConnection:
         Called when the keepalive mechanism gives us a warning.
         """
 
-        self.encoder.encode(PingPacket(
-            payload=b'ABCDEFGHIJKLMNOP'
-        ))
+        self.encoder.encode(PingPacket())
 
         self.proxy.start_writing()
 

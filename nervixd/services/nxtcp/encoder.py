@@ -154,12 +154,10 @@ class InterestPacket(BasePacket):
 
 class PingPacket(BasePacket):
 
-    def __init__(self, payload):
+    def __init__(self):
         BasePacket.__init__(self)
 
         self.set_type(PACKET_PING)
-
-        self.add_blob_field(payload)
 
 
 class WelcomePacket(BasePacket):
@@ -180,4 +178,3 @@ class ByeByePacket(BasePacket):
         BasePacket.__init__(self)
 
         self.set_type(PACKET_BYEBYE)
-

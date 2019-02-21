@@ -21,6 +21,9 @@ PEER3 = REMOTE_PEERS[2]
 
 
 def setup_story(nr_of_clients):
+    """ Convenience function to quicly setup a story with n clients.
+    """
+
     s = Story()
 
     s.expect_local_listen(LHOST)
@@ -43,7 +46,7 @@ class Test(unittest.TestCase):
         s = setup_story(1)
 
         s.expect_local_wait(10.0)
-        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER1, packets.ping())
         s.expect_local_wait(10.0)
         s.expect_local_send(LHOST, PEER1, packets.byebye())
         s.expect_local_close(LHOST, PEER1)
@@ -58,13 +61,13 @@ class Test(unittest.TestCase):
         s = setup_story(1)
 
         s.expect_local_wait(10.0)
-        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER1, packets.ping())
         s.expect_local_wait(9.0)
 
-        s.do_remote_send(PEER1, LHOST, packets.pong(b'whatever'))
+        s.do_remote_send(PEER1, LHOST, packets.pong())
 
         s.expect_local_wait(10.0)
-        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER1, packets.ping())
 
         with SysMock(s):
             main(['--nxtcp', ':9999'])
@@ -217,7 +220,7 @@ class Test(unittest.TestCase):
 
         s.do_remote_send(PEER1, LHOST, packets.request(b'testname', True, 1234, 1000, b'thepayload'))
         s.expect_local_wait(10.0)
-        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER1, packets.ping())
 
         with SysMock(s):
             main(['--nxtcp', ':9999'])
@@ -272,20 +275,20 @@ class Test(unittest.TestCase):
         s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
         s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        s.do_remote_send(PEER2, LHOST, packets.request(b'testname', False, 1234, 61001, b'thepayload'))
+        s.do_remote_send(PEER2, LHOST, packets.request(b'testname', False, 1234, 60001, b'thepayload'))
         s.expect_local_send(LHOST, PEER1, packets.call(False, 1, b'testname', b'thepayload'))
 
         for _ in range(5):
             s.expect_local_wait(10.0)
-            s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
-            s.expect_local_send(LHOST, PEER2, packets.ping(b'ABCDEFGHIJKLMNOP'))
-            s.do_remote_send(PEER1, LHOST, packets.pong(b'anything'))
-            s.do_remote_send(PEER2, LHOST, packets.pong(b'anything'))
+            s.expect_local_send(LHOST, PEER1, packets.ping())
+            s.expect_local_send(LHOST, PEER2, packets.ping())
+            s.do_remote_send(PEER1, LHOST, packets.pong())
+            s.do_remote_send(PEER2, LHOST, packets.pong())
 
         s.expect_local_wait(10.0)
-        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER1, packets.ping())
         s.expect_local_send(LHOST, PEER2, packets.message(1234, packets.MESSAGE_STATUS_TIMEOUT))
-        s.expect_local_send(LHOST, PEER2, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER2, packets.ping())
 
         with SysMock(s):
             main(['--nxtcp', ':9999'])
@@ -347,8 +350,8 @@ class Test(unittest.TestCase):
 
         # no verify that it is indeed ignored by waiting for the keepalive packets
         s.expect_local_wait(10.0)
-        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
-        s.expect_local_send(LHOST, PEER2, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER1, packets.ping())
+        s.expect_local_send(LHOST, PEER2, packets.ping())
 
         with SysMock(s):
             main(['--nxtcp', ':9999'])
@@ -396,9 +399,9 @@ class Test(unittest.TestCase):
 
         # no verify that it is indeed ignored by waiting for the keepalive packets
         s.expect_local_wait(9.0)
-        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER1, packets.ping())
         s.expect_local_wait(1.0)
-        s.expect_local_send(LHOST, PEER2, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER2, packets.ping())
 
         with SysMock(s):
             main(['--nxtcp', ':9999'])
@@ -436,9 +439,9 @@ class Test(unittest.TestCase):
         s.do_remote_send(PEER3, LHOST, packets.subscribe(1234, b'testname', b'testtopic'))
 
         s.expect_local_wait(10.0)
-        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
-        s.expect_local_send(LHOST, PEER2, packets.ping(b'ABCDEFGHIJKLMNOP'))
-        s.expect_local_send(LHOST, PEER3, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER1, packets.ping())
+        s.expect_local_send(LHOST, PEER2, packets.ping())
+        s.expect_local_send(LHOST, PEER3, packets.ping())
 
         with SysMock(s):
             main(['--nxtcp', ':9999'])
