@@ -2,50 +2,35 @@ import unittest
 
 from nervixd.main import main
 
-from tests.helpers.sockmock import SockMock, Scenario
+from tests.helpers.sysmock.story import Story, TcpPeer
+from tests.helpers.sysmock.mock import SysMock
 
 import tests.nxtcp_packet_definition as packets
 
-# we use the following as hostnames and ports for
-LISTEN_ADDRESS = ('', 9999)
-PEER_ADDRESSES = [
-    ('peer1_address', 9001),
-    ('peer2_address', 9002),
-    ('peer3_address', 9003),
+LHOST = TcpPeer('', 9999)
+
+REMOTE_PEERS = [
+    TcpPeer('peer1', 9001),
+    TcpPeer('peer2', 9002),
+    TcpPeer('peer3', 9003),
 ]
 
-PEER1_ADDRESS = PEER_ADDRESSES[0]
-PEER2_ADDRESS = PEER_ADDRESSES[1]
-PEER3_ADDRESS = PEER_ADDRESSES[2]
+PEER1 = REMOTE_PEERS[0]
+PEER2 = REMOTE_PEERS[1]
+PEER3 = REMOTE_PEERS[2]
 
 
-def setup_clients(scenario, nr_clients):
-    """ Setup a scenario and n number of clients. 
-    """
+def setup_story(nr_of_clients):
+    s = Story()
 
-    host = scenario.local_socket()
-    host.listen(LISTEN_ADDRESS)
+    s.expect_local_listen(LHOST)
 
-    clients = []
+    for i in range(nr_of_clients):
+        peer = REMOTE_PEERS[i]
+        s.do_remote_connect(peer, LHOST)
+        s.expect_local_send(LHOST, peer, packets.welcome())
 
-    for i in range(nr_clients):
-        client = scenario.remote_socket(PEER_ADDRESSES[i])
-        client.connect(LISTEN_ADDRESS)
-
-        client.recv(packets.welcome())
-
-        clients.append(client)
-
-    return (host, *clients)
-
-
-def close_clients(*clients):
-    """ Clean up the given clients.
-    """
-
-    for client in clients:
-        client.send(packets.quit())
-        client.remote_closed()
+    return s
 
 
 class Test(unittest.TestCase):
@@ -55,89 +40,63 @@ class Test(unittest.TestCase):
         be disconnected after another 10 seconds.
         """
 
-        s = Scenario()
-        host, client = setup_clients(s, 1)
+        s = setup_story(1)
 
-        s.timelapse(10.0)
+        s.expect_local_wait(10.0)
+        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_wait(10.0)
+        s.expect_local_send(LHOST, PEER1, packets.byebye())
+        s.expect_local_close(LHOST, PEER1)
+        s.expect_local_idle()
 
-        client.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-
-        s.timelapse(10.0)
-
-        client.recv(packets.byebye())
-
-        client.remote_closed()
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_keepalive_2(self):
         """ Test if the keepalive timer will be reset if the client sends a PONG packet
         """
+        s = setup_story(1)
 
-        s = Scenario()
-        host, client = setup_clients(s, 1)
+        s.expect_local_wait(10.0)
+        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_wait(9.0)
 
-        s.timelapse(10.0)
+        s.do_remote_send(PEER1, LHOST, packets.pong(b'whatever'))
 
-        client.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_wait(10.0)
+        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
 
-        client.send(packets.pong(b'WHATEVER'))
-
-        s.timelapse(10.0)
-
-        client.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-
-        s.timelapse(10.0)
-
-        client.recv(packets.byebye())
-
-        client.remote_closed()
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_login_1(self):
         """ Test if the client will receive a active session on a login request.
         """
 
-        s = Scenario()
-        host, client = setup_clients(s, 1)
+        s = setup_story(1)
 
-        client.send(packets.login(b'testname', False, False, False))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        client.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        # s.do_remote_kill()
 
-        close_clients(client)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_login_two_clients_0(self):
-        """ Test if thesecond client that logins on a name will receive a
+        """ Test if the second client that logins on a name will receive a
         SESSION_ENDED packet.
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', False, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.login(b'testname', False, False, False))
-        c2.recv(packets.session(b'testname', packets.SESSION_STATE_ENDED))
+        s.do_remote_send(PEER2, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER2, packets.session(b'testname', packets.SESSION_STATE_ENDED))
 
-        close_clients(c1, c2)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_login_two_clients_1(self):
@@ -145,21 +104,16 @@ class Test(unittest.TestCase):
         second client if it logins with Force=True
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', False, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.login(b'testname', False, False, True))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ENDED))
-        c2.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER2, LHOST, packets.login(b'testname', False, False, True))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ENDED))
+        s.expect_local_send(LHOST, PEER2, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        close_clients(c1, c2)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_login_two_client_2(self):
@@ -168,20 +122,15 @@ class Test(unittest.TestCase):
         the Persist=True flag
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', True, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', True, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.login(b'testname', False, False, True))
-        c2.recv(packets.session(b'testname', packets.SESSION_STATE_ENDED))
+        s.do_remote_send(PEER2, LHOST, packets.login(b'testname', False, False, True))
+        s.expect_local_send(LHOST, PEER2, packets.session(b'testname', packets.SESSION_STATE_ENDED))
 
-        close_clients(c1, c2)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_login_two_clients_3(self):
@@ -190,50 +139,59 @@ class Test(unittest.TestCase):
         logs out.
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', False, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.login(b'testname', False, True, False))
-        c2.recv(packets.session(b'testname', packets.SESSION_STATE_STANDBY))
+        s.do_remote_send(PEER2, LHOST, packets.login(b'testname', False, True, False))
+        s.expect_local_send(LHOST, PEER2, packets.session(b'testname', packets.SESSION_STATE_STANDBY))
 
-        c1.send(packets.logout(b'testname'))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ENDED))
-        c2.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.logout(b'testname'))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ENDED))
+        s.expect_local_send(LHOST, PEER2, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        close_clients(c1, c2)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_login_two_clients_4(self):
-        """ Test the second client will get a SESSION_STANDBY packet and an
-        SESSION_ACTIVE packet once the first client logs out. Even with the Enforce
-        Persist flags set.
+        """ Test the second client will get a SESSION_STANDBY packet and a
+        SESSION_ACTIVE packet once the first client logs out. Even with the
+        Enforce and Persist flags set.
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', True, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', True, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.login(b'testname', False, True, True))
-        c2.recv(packets.session(b'testname', packets.SESSION_STATE_STANDBY))
+        s.do_remote_send(PEER2, LHOST, packets.login(b'testname', False, True, True))
+        s.expect_local_send(LHOST, PEER2, packets.session(b'testname', packets.SESSION_STATE_STANDBY))
 
-        c1.send(packets.logout(b'testname'))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ENDED))
-        c2.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.logout(b'testname'))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ENDED))
+        s.expect_local_send(LHOST, PEER2, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        close_clients(c1, c2)
+        with SysMock(s):
+            main(['--nxtcp', ':9999'])
 
-        s.end()
+    def test_logout_on_client_disconnect(self):
+        """ Test if a client disconnect will be treated as a logout.
+        """
 
-        with SockMock(s):
+        s = setup_story(2)
+
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+
+        s.do_remote_send(PEER2, LHOST, packets.login(b'testname', False, True, False))
+        s.expect_local_send(LHOST, PEER2, packets.session(b'testname', packets.SESSION_STATE_STANDBY))
+
+        s.do_remote_close(PEER1, LHOST)
+        s.expect_local_close(LHOST, PEER1)
+        s.expect_local_send(LHOST, PEER2, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_request_no_responder_1(self):
@@ -241,37 +199,27 @@ class Test(unittest.TestCase):
         to an un-owned session.
         """
 
-        s = Scenario()
-        host, c1 = setup_clients(s, 1)
+        s = setup_story(1)
 
-        c1.send(packets.request(b'testname', False, 1234, 1000, b'thepayload'))
+        s.do_remote_send(PEER1, LHOST, packets.request(b'testname', False, 1234, 1000, b'thepayload'))
+        s.expect_local_send(LHOST, PEER1, packets.message(1234, packets.MESSAGE_STATUS_UNREACHABLE))
 
-        c1.recv(packets.message(1234, packets.MESSAGE_STATUS_UNREACHABLE))
-
-        close_clients(c1)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_request_no_responder_2(self):
         """ Test if a Request packet is NOT responded to when send in unidirectional
-        mode.
+        mode. This is verified by expecting a ping packet because of the keepalive
+        mechanism.
         """
 
-        s = Scenario()
-        host, c1 = setup_clients(s, 1)
+        s = setup_story(1)
 
-        c1.send(packets.request(b'testname', True, 1234, 1000, b'thepayload'))
+        s.do_remote_send(PEER1, LHOST, packets.request(b'testname', True, 1234, 1000, b'thepayload'))
+        s.expect_local_wait(10.0)
+        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
 
-        s.timelapse(5.0)
-
-        close_clients(c1)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_request_timeout_1(self):
@@ -279,116 +227,67 @@ class Test(unittest.TestCase):
         request is done to an owned session, but not responded to by the first client.
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', False, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.request(b'testname', False, 1234, 2222, b'thepayload'))
-        c1.recv(packets.call(False, 1, b'testname', b'thepayload'))
+        s.do_remote_send(PEER2, LHOST, packets.request(b'testname', False, 1234, 2222, b'thepayload'))
+        s.expect_local_send(LHOST, PEER1, packets.call(False, 1, b'testname', b'thepayload'))
 
-        s.timelapse(2.222)
+        s.expect_local_wait(2.222)
 
-        c2.recv(packets.message(1234, packets.MESSAGE_STATUS_TIMEOUT))
+        s.expect_local_send(LHOST, PEER2, packets.message(1234, packets.MESSAGE_STATUS_TIMEOUT))
 
-        close_clients(c1, c2)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_request_timeout_2(self):
-        """ Test if the timeout will be the default if unspecied in the request.
+        """ Test if the timeout will be the default if unspecified in the request.
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', False, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.request(b'testname', False, 1234, 0, b'thepayload'))
-        c1.recv(packets.call(False, 1, b'testname', b'thepayload'))
+        s.do_remote_send(PEER2, LHOST, packets.request(b'testname', False, 1234, 0, b'thepayload'))
+        s.expect_local_send(LHOST, PEER1, packets.call(False, 1, b'testname', b'thepayload'))
 
-        s.timelapse(4.0)
+        s.expect_local_wait(4.0)
 
-        c2.recv(packets.message(1234, packets.MESSAGE_STATUS_TIMEOUT))
+        s.expect_local_send(LHOST, PEER2, packets.message(1234, packets.MESSAGE_STATUS_TIMEOUT))
 
-        close_clients(c1, c2)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_request_timeout_3(self):
         """ Test if the timeout will be limited if a too long timeout is specified.
         Because we are testing such a long timoeut, we have to account for the packets send by the keepalive
-        mechanism as well.
+        mechanism as well, that is why it looks a bit messy.
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', False, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.request(b'testname', False, 1234, 61000, b'thepayload'))
-        c1.recv(packets.call(False, 1, b'testname', b'thepayload'))
+        s.do_remote_send(PEER2, LHOST, packets.request(b'testname', False, 1234, 61001, b'thepayload'))
+        s.expect_local_send(LHOST, PEER1, packets.call(False, 1, b'testname', b'thepayload'))
 
-        s.timelapse(10.0)
+        for _ in range(5):
+            s.expect_local_wait(10.0)
+            s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+            s.expect_local_send(LHOST, PEER2, packets.ping(b'ABCDEFGHIJKLMNOP'))
+            s.do_remote_send(PEER1, LHOST, packets.pong(b'anything'))
+            s.do_remote_send(PEER2, LHOST, packets.pong(b'anything'))
 
-        c1.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-        c2.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-        c1.send(packets.pong(b'anything'))
-        c2.send(packets.pong(b'anything'))
+        s.expect_local_wait(10.0)
+        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER2, packets.message(1234, packets.MESSAGE_STATUS_TIMEOUT))
+        s.expect_local_send(LHOST, PEER2, packets.ping(b'ABCDEFGHIJKLMNOP'))
 
-        s.timelapse(10.0)
-
-        c1.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-        c2.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-        c1.send(packets.pong(b'anything'))
-        c2.send(packets.pong(b'anything'))
-
-        s.timelapse(10.0)
-
-        c1.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-        c2.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-        c1.send(packets.pong(b'anything'))
-        c2.send(packets.pong(b'anything'))
-
-        s.timelapse(10.0)
-
-        c1.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-        c2.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-        c1.send(packets.pong(b'anything'))
-        c2.send(packets.pong(b'anything'))
-
-        s.timelapse(10.0)
-
-        c1.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-        c2.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-        c1.send(packets.pong(b'anything'))
-        c2.send(packets.pong(b'anything'))
-
-        s.timelapse(10.0)
-
-        c1.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-
-        c2.recv(packets.message(1234, packets.MESSAGE_STATUS_TIMEOUT))
-
-        c2.recv(packets.ping(b'ABCDEFGHIJKLMNOP'))
-
-        c1.send(packets.pong(b'anything'))
-        c2.send(packets.pong(b'anything'))
-
-        close_clients(c1, c2)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_request_unidirectional_1(self):
@@ -396,22 +295,15 @@ class Test(unittest.TestCase):
         second client sends an unidirectional request.
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', False, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.request(b'testname', True, 0, 0, b'thepayload'))
-        c1.recv(packets.call(True, 0, b'testname', b'thepayload'))
+        s.do_remote_send(PEER2, LHOST, packets.request(b'testname', True, 0, 0, b'thepayload'))
+        s.expect_local_send(LHOST, PEER1, packets.call(True, 0, b'testname', b'thepayload'))
 
-        s.timelapse(5.0)
-
-        close_clients(c1, c2)
-
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_request_1(self):
@@ -419,22 +311,18 @@ class Test(unittest.TestCase):
         to the request.
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', False, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.request(b'testname', False, 1234, 1000, b'thepayload'))
-        c1.recv(packets.call(False, 1, b'testname', b'thepayload'))
+        s.do_remote_send(PEER2, LHOST, packets.request(b'testname', False, 1234, 1000, b'thepayload'))
+        s.expect_local_send(LHOST, PEER1, packets.call(False, 1, b'testname', b'thepayload'))
 
-        c1.send(packets.post(1, b'thepayload'))
-        c2.recv(packets.message(1234, packets.MESSAGE_STATUS_OK, b'thepayload'))
+        s.do_remote_send(PEER1, LHOST, packets.post(1, b'thepayload'))
+        s.expect_local_send(LHOST, PEER2, packets.message(1234, packets.MESSAGE_STATUS_OK, b'thepayload'))
 
-        close_clients(c1, c2)
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_dual_post_1(self):
@@ -442,26 +330,27 @@ class Test(unittest.TestCase):
         result in a second Message packet to client.
         """
 
-        s = Scenario()
-        host, c1, c2 = setup_clients(s, 2)
+        s = setup_story(2)
 
-        c1.send(packets.login(b'testname', False, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.request(b'testname', False, 1234, 1000, b'thepayload'))
-        c1.recv(packets.call(False, 1, b'testname', b'thepayload'))
+        s.do_remote_send(PEER2, LHOST, packets.request(b'testname', False, 1234, 1000, b'thepayload'))
+        s.expect_local_send(LHOST, PEER1, packets.call(False, 1, b'testname', b'thepayload'))
 
-        c1.send(packets.post(1, b'thepayload'))
-        c2.recv(packets.message(1234, packets.MESSAGE_STATUS_OK, b'thepayload'))
+        # 1st post
+        s.do_remote_send(PEER1, LHOST, packets.post(1, b'thepayload'))
+        s.expect_local_send(LHOST, PEER2, packets.message(1234, packets.MESSAGE_STATUS_OK, b'thepayload'))
 
-        c1.send(packets.post(1, b'thesecondpayload'))
+        # 2nd post
+        s.do_remote_send(PEER1, LHOST, packets.post(1, b'thepayload'))
 
-        s.timelapse(2.0)
+        # no verify that it is indeed ignored by waiting for the keepalive packets
+        s.expect_local_wait(10.0)
+        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER2, packets.ping(b'ABCDEFGHIJKLMNOP'))
 
-        close_clients(c1, c2)
-        s.end()
-
-        with SockMock(s):
+        with SysMock(s):
             main(['--nxtcp', ':9999'])
 
     def test_post_from_wrong_client(self):
@@ -470,23 +359,171 @@ class Test(unittest.TestCase):
         received by c2.
         """
 
-        s = Scenario()
-        host, c1, c2, c3 = setup_clients(s, 3)
+        s = setup_story(3)
 
-        c1.send(packets.login(b'testname', False, False, False))
-        c1.recv(packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
 
-        c2.send(packets.request(b'testname', False, 1234, 1000, b'thepayload'))
-        c1.recv(packets.call(False, 1, b'testname', b'thepayload'))
+        s.do_remote_send(PEER2, LHOST, packets.request(b'testname', False, 1234, 1000, b'thepayload'))
+        s.expect_local_send(LHOST, PEER1, packets.call(False, 1, b'testname', b'thepayload'))
 
-        c3.send(packets.post(1, b'thepayload'))
+        s.do_remote_send(PEER3, LHOST, packets.post(1, b'thepayload'))
 
-        s.timelapse(1.0)
+        s.expect_local_wait(1.0)
 
-        c2.recv(packets.message(1234, packets.MESSAGE_STATUS_TIMEOUT))
+        s.expect_local_send(LHOST, PEER2, packets.message(1234, packets.MESSAGE_STATUS_TIMEOUT))
 
-        close_clients(c1, c2, c3)
-        s.end()
+        with SysMock(s):
+            main(['--nxtcp', ':9999'])
 
-        with SockMock(s):
+    def test_post_after_timeout(self):
+        """ Test if a post is ignored when the request timeout is already expired.
+        """
+
+        s = setup_story(2)
+
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+
+        s.do_remote_send(PEER2, LHOST, packets.request(b'testname', False, 1234, 1000, b'thepayload'))
+        s.expect_local_send(LHOST, PEER1, packets.call(False, 1, b'testname', b'thepayload'))
+
+        s.expect_local_wait(1.0)
+
+        s.expect_local_send(LHOST, PEER2, packets.message(1234, packets.MESSAGE_STATUS_TIMEOUT))
+
+        s.do_remote_send(PEER2, LHOST, packets.post(1, b'thepayload'))
+
+        # no verify that it is indeed ignored by waiting for the keepalive packets
+        s.expect_local_wait(9.0)
+        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_wait(1.0)
+        s.expect_local_send(LHOST, PEER2, packets.ping(b'ABCDEFGHIJKLMNOP'))
+
+        with SysMock(s):
+            main(['--nxtcp', ':9999'])
+
+    def test_subscribe_1(self):
+        """ Test that a subscribe from c2 will result in a interest packet on c1.
+        """
+
+        s = setup_story(2)
+
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+
+        s.do_remote_send(PEER2, LHOST, packets.subscribe(1234, b'testname', b'testtopic'))
+        s.expect_local_send(LHOST, PEER1,
+                            packets.interest(1, packets.INTEREST_STATUS_INTEREST, b'testtopic'))
+
+        with SysMock(s):
+            main(['--nxtcp', ':9999'])
+
+    def test_subscribe_2(self):
+        """ Test that multiple subscries will still result in just one interest packet.
+        """
+
+        s = setup_story(3)
+
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+
+        s.do_remote_send(PEER2, LHOST, packets.subscribe(1234, b'testname', b'testtopic'))
+
+        s.expect_local_send(LHOST, PEER1,
+                            packets.interest(1, packets.INTEREST_STATUS_INTEREST, b'testtopic'))
+
+        s.do_remote_send(PEER3, LHOST, packets.subscribe(1234, b'testname', b'testtopic'))
+
+        s.expect_local_wait(10.0)
+        s.expect_local_send(LHOST, PEER1, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER2, packets.ping(b'ABCDEFGHIJKLMNOP'))
+        s.expect_local_send(LHOST, PEER3, packets.ping(b'ABCDEFGHIJKLMNOP'))
+
+        with SysMock(s):
+            main(['--nxtcp', ':9999'])
+
+    def test_unsubscribe_1(self):
+        """ Test that a no-interest packet will be send when all subscribes have unsubscdribed.
+        """
+
+        s = setup_story(3)
+
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+
+        s.do_remote_send(PEER2, LHOST, packets.subscribe(1234, b'testname', b'testtopic'))
+
+        s.expect_local_send(LHOST, PEER1,
+                            packets.interest(1, packets.INTEREST_STATUS_INTEREST, b'testtopic'))
+
+        s.do_remote_send(PEER3, LHOST, packets.subscribe(1234, b'testname', b'testtopic'))
+
+        s.do_remote_send(PEER2, LHOST, packets.unsubscribe(b'testname', b'testtopic'))
+        s.do_remote_send(PEER3, LHOST, packets.unsubscribe(b'testname', b'testtopic'))
+
+        s.expect_local_send(LHOST, PEER1,
+                            packets.interest(1, packets.INTEREST_STATUS_NOINTEREST, b'testtopic'))
+
+        with SysMock(s):
+            main(['--nxtcp', ':9999'])
+
+    def test_subscribe_post_1(self):
+        """ Test if mulitple post on a topic will indeed result in multiple messages to all subscribers.
+        """
+
+        s = setup_story(3)
+
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+
+        s.do_remote_send(PEER2, LHOST, packets.subscribe(1234, b'testname', b'testtopic'))
+
+        s.expect_local_send(LHOST, PEER1,
+                            packets.interest(1, packets.INTEREST_STATUS_INTEREST, b'testtopic'))
+
+        s.do_remote_send(PEER3, LHOST, packets.subscribe(1234, b'testname', b'testtopic'))
+
+        s.do_remote_send(PEER1, LHOST, packets.post(1, b'testpayload'))
+
+        s.expect_local_send(LHOST, PEER2, packets.message(1234, packets.MESSAGE_STATUS_OK, b'testpayload'))
+        s.expect_local_send(LHOST, PEER3, packets.message(1234, packets.MESSAGE_STATUS_OK, b'testpayload'))
+
+        with SysMock(s):
+            main(['--nxtcp', ':9999'])
+
+    def test_subscriber_quit_1(self):
+        """ Test if unexpected close of an client will result in an unsubscribe.
+        """
+
+        s = setup_story(2)
+
+        s.do_remote_send(PEER1, LHOST, packets.login(b'testname', False, False, False))
+        s.expect_local_send(LHOST, PEER1, packets.session(b'testname', packets.SESSION_STATE_ACTIVE))
+
+        s.do_remote_send(PEER2, LHOST, packets.subscribe(1234, b'testname', b'testtopic'))
+
+        s.expect_local_send(LHOST, PEER1,
+                            packets.interest(1, packets.INTEREST_STATUS_INTEREST, b'testtopic'))
+
+        s.do_remote_close(PEER2, LHOST)
+        s.expect_local_close(LHOST, PEER2)
+
+        s.expect_local_send(LHOST, PEER1,
+                            packets.interest(1, packets.INTEREST_STATUS_NOINTEREST, b'testtopic'))
+
+        with SysMock(s):
+            main(['--nxtcp', ':9999'])
+
+    def test_quit_byebye(self):
+        """ Test if the server will close the connection when a quit packet is received.
+        """
+
+        s = setup_story(1)
+
+        s.do_remote_send(PEER1, LHOST, packets.quit())
+
+        s.expect_local_close(LHOST, PEER1)
+
+        with SysMock(s):
             main(['--nxtcp', ':9999'])

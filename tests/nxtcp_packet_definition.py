@@ -129,7 +129,7 @@ def message(messageref, status, payload=None):
     if status == MESSAGE_STATUS_OK:
         n += 4 + len(payload)
 
-        pkt += blob(b'thepayload')
+        pkt += blob(payload)
 
     return uint32(n) + pkt
 
