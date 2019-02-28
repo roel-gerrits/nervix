@@ -4,6 +4,7 @@ TODO
 v1.0
 
 - fix encoding of payload/topic in telnet service
+    - revisit telnet concept as a whole...
 
 - write docs
     - concept
@@ -13,7 +14,6 @@ v1.0
             - *
     - nxtcp protocol definition
     - telnet protocol definition
-
 
 v1.1
 
