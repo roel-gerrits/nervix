@@ -1,10 +1,9 @@
 import socket
 
-from nervixd.services import BaseService
 from .connection import TelnetConnection
 
 
-class TelnetService(BaseService):
+class TelnetService:
 
     def __init__(self, controller, mainloop, reactor, tracer, address):
         self.controller = controller
@@ -12,8 +11,6 @@ class TelnetService(BaseService):
         self.reactor = reactor
         self.tracer = tracer
         self.address = address
-
-        self.controller.register_service(self)
 
         self.__start()
 
@@ -33,6 +30,10 @@ class TelnetService(BaseService):
         self.proxy.set_read_handler(self.__on_connect)
         self.proxy.set_interest(read=True)
 
+        # let the controller know that a new service is running
+        description = f'TELNET_SERVICE_{self.address[0]}:{self.address[1]}'
+        self.controller.register(self, description, self.__on_shutdown)
+
     def __on_connect(self):
         """
         Called from the mainloop when a new connection is ready to be
@@ -41,12 +42,15 @@ class TelnetService(BaseService):
 
         client_sock, address = self.socket.accept()
 
-        client = TelnetConnection(self.controller, self.mainloop, self.reactor, self.tracer, client_sock)
+        TelnetConnection(self.controller, self.mainloop, self.reactor, self.tracer, client_sock)
 
-        self.controller.register_client(client)
+    def __on_shutdown(self, action):
+        """ Called from controller when the service should shut down. The action parameter
+        indicates weather the service should shutdown immediatly (SHUTDOWN_NOW) or
+        soon (SHUTDOWN_SOON).
+        """
 
-    def get_actual_address(self):
-        """
-        Get the actual address tuple that the socket listens on.
-        """
-        return self.socket.getsockname()
+        self.proxy.unregister()
+        self.socket.close()
+
+        self.controller.unregister(self)

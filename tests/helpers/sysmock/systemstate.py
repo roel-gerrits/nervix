@@ -1,3 +1,5 @@
+import os
+import signal
 from operator import itemgetter
 from collections import deque
 from . import story
@@ -330,6 +332,10 @@ class SystemState:
         """
 
         raise Abort()
+
+    def signal(self, signo):
+        pid = os.getpid()
+        os.kill(pid, signo)
 
     """
     Helper functions

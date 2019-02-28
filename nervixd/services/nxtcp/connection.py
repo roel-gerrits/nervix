@@ -5,6 +5,7 @@ from nervixd.util.keepalive import KeepAlive
 from .encoder import *
 from .decoder import *
 from nervixd.reactor.verbs import *
+from nervixd.controller import SHUTDOWN_NOW, SHUTDOWN_SOON
 
 logger = logging.getLogger(__name__)
 
@@ -65,13 +66,13 @@ class NxtcpConnection:
         # init channel
         self.channel = self.reactor.channel()
 
-        sock_port = self.socket.getpeername()[1]
-        description = 'NXTCP_{:05d}'.format(sock_port)
+        peer_name, peer_port = self.socket.getpeername()
+        description = f'NXTCP_CLIENT_{peer_name}:{peer_port}'
         self.channel.set_description(description)
         self.channel.set_downstream_handler(self.__on_downstream)
 
         # register on controller
-        self.controller.register_client(self)
+        self.controller.register(self, description, self.__on_shutdown)
 
         # send welcome
         self.encoder.encode(WelcomePacket(1, 1))
@@ -177,6 +178,18 @@ class NxtcpConnection:
 
         handler(verb)
 
+    def __on_shutdown(self, action):
+        """ Called form the controller when the connection should be shut down. The action parameter indicates
+        if the connection should be closed immediatly (SHUTDOWN_NOW) or soon (SHUTDOWN_SOON).
+        """
+
+        if action == SHUTDOWN_SOON:
+            self.encoder.encode(ByeByePacket())
+            self.proxy.start_writing()
+
+        if action == SHUTDOWN_NOW:
+            self.__do_close_connection()
+
     def __do_close_connection(self):
         """
         Called when the client has closed the connection.
@@ -195,7 +208,7 @@ class NxtcpConnection:
         self.socket.close()
 
         # unregister from controller
-        self.controller.unregister_client(self)
+        self.controller.unregister(self)
 
         # send trace
         # TODO

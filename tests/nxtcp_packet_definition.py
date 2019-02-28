@@ -1,6 +1,6 @@
 """
-This file describes de format of all the packets that are defined in the NXTCP protocol.
-The functions in this module are used to test against in the unittests.
+This file describes the format of all the packets that are defined in the NXTCP protocol.
+The functions in this module are used to create test packets used in the unittests.
 """
 
 from struct import pack

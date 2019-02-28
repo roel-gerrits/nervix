@@ -1,12 +1,11 @@
 import logging
 import argparse
-import sys
 
 from nervixd.mainloop import Mainloop
 
 from nervixd.reactor import Reactor
 
-from nervixd.services import ServiceController
+from nervixd.controller import Controller
 from nervixd.services.telnet.service import TelnetService
 from nervixd.services.nxtcp.service import NxtcpService
 
@@ -88,11 +87,11 @@ def main(arg_list):
 
     mainloop = Mainloop()
 
+    controller = Controller(mainloop, args)
+
     tracer = PrintTracer()
 
     reactor = Reactor(mainloop, tracer)
-
-    controller = ServiceController(args)
 
     # create NXTCP services
     for address in args.nxtcp_addresses:
@@ -106,4 +105,4 @@ def main(arg_list):
 
     mainloop.run_forever()
 
-    logger.info("Mainloop ended")
+    logger.info("Mainloop finished")

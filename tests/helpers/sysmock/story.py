@@ -95,7 +95,7 @@ class LocalClose(_LocalEvent):
     """ The local process closes a socket
     """
 
-    def __init__(self, local_peer, to_address):
+    def __init__(self, local_peer, to_address=None):
         self.local_peer = local_peer
         self.to_address = _get_address(to_address)
 
@@ -226,6 +226,15 @@ class RemoteKill(_RemoteEvent):
         systemstate.kill()
 
 
+class RemoteSignal(_RemoteEvent):
+
+    def __init__(self, signo):
+        self.signo = signo
+
+    def execute(self, systemstate):
+        systemstate.signal(self.signo)
+
+
 class StoryBase:
 
     def __init__(self):
@@ -324,6 +333,9 @@ class Story(StoryBase):
 
     def do_remote_listen(self, *args, **kwargs):
         self.do(RemoteListen(*args, **kwargs))
+
+    def do_remote_signal(self, *args, **kwargs):
+        self.do(RemoteSignal(*args, **kwargs))
 
 
 class StoryError(AssertionError):

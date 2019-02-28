@@ -1,4 +1,5 @@
 import unittest
+import signal
 
 from nervixd.main import main
 
@@ -525,6 +526,44 @@ class Test(unittest.TestCase):
         s = setup_story(1)
 
         s.do_remote_send(PEER1, LHOST, packets.quit())
+
+        s.expect_local_close(LHOST, PEER1)
+
+        with SysMock(s):
+            main(['--nxtcp', ':9999'])
+
+    def test_shutdown_sigterm(self):
+        """ Test if the server will send byebye packet and close connection on SIGTERM.
+        """
+
+        s = setup_story(1)
+
+        s.do_remote_signal(signal.SIGTERM)
+
+        s.expect_local_close(LHOST)
+
+        s.expect_local_send(LHOST, PEER1, packets.byebye())
+
+        s.expect_local_wait(5.0)
+
+        s.expect_local_close(LHOST, PEER1)
+
+        with SysMock(s):
+            main(['--nxtcp', ':9999'])
+
+    def test_shutdown_sigint(self):
+        """ Test if the server will send byebye packet and close connection on SIGINT.
+        """
+
+        s = setup_story(1)
+
+        s.do_remote_signal(signal.SIGINT)
+
+        s.expect_local_close(LHOST)
+
+        s.expect_local_send(LHOST, PEER1, packets.byebye())
+
+        s.expect_local_wait(5.0)
 
         s.expect_local_close(LHOST, PEER1)
 

@@ -3,20 +3,12 @@ TODO
 
 v1.0
 
-- implement service controller
-    - have services register with controller
-    - have clients register with controller
-    - have controller print something to stdout
-
-- catch and handle SIGINT
-    - have services and their clients close in a controlled manner
-
 - fix encoding of payload/topic in telnet service
 
 - write docs
     - concept
         - channels
-        - namespaces
+        - namespaces(rename as sessions?)
         - verbs
             - *
     - nxtcp protocol definition

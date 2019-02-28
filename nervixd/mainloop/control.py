@@ -7,7 +7,7 @@ class Control:
     """
     Class that is used to manage control signals inside the mainloop.
 
-    It is main purpose is to unblock the select call, and to inform
+    Its main purpose is to unblock the select call, and to inform
     the mainloop of some event.
     """
 

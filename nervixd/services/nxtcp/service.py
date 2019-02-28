@@ -1,10 +1,9 @@
 import socket
 
-from nervixd.services import BaseService
 from .connection import NxtcpConnection
 
 
-class NxtcpService(BaseService):
+class NxtcpService:
 
     def __init__(self, controller, mainloop, reactor, tracer, address):
         self.controller = controller
@@ -31,7 +30,9 @@ class NxtcpService(BaseService):
         self.proxy.set_read_handler(self.__on_connect)
         self.proxy.set_interest(read=True)
 
-        self.controller.register_service(self)
+        # let the controller know that a new service is running
+        description = f'NXTCP_SERVICE_{self.address[0]}:{self.address[1]}'
+        self.controller.register(self, description, self.__on_shutdown)
 
     def __on_connect(self):
         """
@@ -43,8 +44,13 @@ class NxtcpService(BaseService):
 
         NxtcpConnection(self.controller, self.mainloop, self.reactor, self.tracer, client_sock)
 
-    def get_actual_address(self):
+    def __on_shutdown(self, action):
+        """ Called from controller when the service should shut down. The action parameter
+        indicates weather the service should shutdown immediatly (SHUTDOWN_NOW) or
+        soon (SHUTDOWN_SOON).
         """
-        Get the actual address tuple that the socket listens on.
-        """
-        return self.socket.getsockname()
+
+        self.proxy.unregister()
+        self.socket.close()
+
+        self.controller.unregister(self)

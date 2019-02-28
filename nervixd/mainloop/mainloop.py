@@ -1,4 +1,3 @@
-import os
 import time
 import heapq
 
@@ -39,6 +38,7 @@ class Mainloop:
     one more cycle.
     """
 
+    SIG_WAKEUP = 0
     SIG_SHUTDOWN = 1
 
     def __init__(self):
@@ -140,11 +140,6 @@ class Mainloop:
             if signal == Mainloop.SIG_SHUTDOWN:
                 self.shutdown_flag = True
 
-            elif signal == Mainloop.SIG_START_TIME_TRAVEL:
-                # no need to do anything, the time-traveling will happen on the next call to this
-                # function
-                pass
-
         return nr_timers + nr_writes + nr_reads + nr_signals
 
     def register(self, fd):
@@ -215,8 +210,8 @@ class Mainloop:
         if fd in self.fd_events:
             self._update_interest(fd, read=False, write=False)
             del self.fd_events[fd]
-            del self.fd_read_handlers[fd]
-            del self.fd_write_handlers[fd]
+            self.fd_read_handlers.pop(fd, None)
+            self.fd_write_handlers.pop(fd, None)
 
     def _update_timer_timeout(self, timer_id, timeout):
         """
@@ -227,6 +222,8 @@ class Mainloop:
         deadline = now + timeout
 
         heapq.heappush(self.timer_deadlines, (deadline, timer_id))
+
+        self.control.signal(Mainloop.SIG_WAKEUP)
 
     def _update_timer_handler(self, timer_id, func):
         """
